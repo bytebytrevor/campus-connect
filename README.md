@@ -8,3 +8,4 @@ Trevor:
 Anderson Okai:
 "It is clear that we must find an African solution to our problems, and that this can only be found in African unity. Divided we are weak; united, Africa could become one of the greatest forces for good in the world"
 Kwame Nkrumah
+
