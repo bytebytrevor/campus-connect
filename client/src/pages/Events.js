@@ -29,6 +29,10 @@ const Events = () => {
     }
   };
 
+  const addEvent = async() => {
+    return;
+  }
+
   const handleRSVP = async (eventId) => {
     if (!currentUser) return;
     
@@ -157,7 +161,9 @@ const Events = () => {
 
         {/* Add Event Button */}
         <div className="fixed bottom-8 right-8">
-          <button className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-colors">
+          <button
+            onClick={addEvent}
+            className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
