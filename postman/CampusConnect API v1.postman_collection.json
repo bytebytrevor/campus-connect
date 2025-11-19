@@ -1,0 +1,179 @@
+{
+	"info": {
+		"_postman_id": "cf95d148-c8fa-4992-8521-5096b116ffad",
+		"name": "CampusConnect API v1",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "49197413"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "POST Sign Up with Email & Password",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"email\": \"student@example.com\",\r\n  \"password\": \"securePass123\",\r\n  \"returnSecureToken\": true\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBeF580IEEwq6yMtvreM6TWCEvdkmFv3KU",
+							"protocol": "https",
+							"host": [
+								"identitytoolkit",
+								"googleapis",
+								"com"
+							],
+							"path": [
+								"v1",
+								"accounts:signUp"
+							],
+							"query": [
+								{
+									"key": "key",
+									"value": "AIzaSyBeF580IEEwq6yMtvreM6TWCEvdkmFv3KU"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "POST Sign In with Email & Password",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBeF580IEEwq6yMtvreM6TWCEvdkmFv3KU",
+							"protocol": "https",
+							"host": [
+								"identitytoolkit",
+								"googleapis",
+								"com"
+							],
+							"path": [
+								"v1",
+								"accounts:signInWithPassword"
+							],
+							"query": [
+								{
+									"key": "key",
+									"value": "AIzaSyBeF580IEEwq6yMtvreM6TWCEvdkmFv3KU"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Firestore Collections (Planned)",
+			"item": [
+				{
+					"name": "Users Collection",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"major\": \"Software Development\",\r\n  \"year\": \"Senior\",\r\n  \"interests\": [\"Web Dev\", \"Cybersecurity\", \"Education Tech\"],\r\n  \"createdAt\": \"2025-11-16T01:36:00Z\",\r\n  \"email\": \"anderson.okai@byui.edu\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "Firestore > users/{userId}",
+						"description": "StartFragment\n\nStores user profile data. Only the owner can read/write their own document.\n\nEndFragment"
+					},
+					"response": []
+				},
+				{
+					"name": "Events Collection",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"title\": \"Tech Innovation Workshop\",\r\n  \"category\": \"Workshop\",\r\n  \"date\": \"2025-11-20T14:00:00Z\",\r\n  \"location\": \"Science Building Room 201\",\r\n  \"description\": \"Hands-on session on React and Firebase.\",\r\n  \"organizer\": \"CSE Club\",\r\n  \"rsvpCount\": 45,\r\n  \"createdAt\": \"2025-11-10T10:00:00Z\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "Firestore > events/{eventId}",
+						"description": "StartFragment\n\nStores campus events. Public read, admin/create only.\n\nEndFragment"
+					},
+					"response": []
+				},
+				{
+					"name": "Study Groups Collection",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"courseCode\": \"CSE 499\",\r\n  \"title\": \"Senior Project Sprint Review\",\r\n  \"members\": [\"user123\", \"user456\"],\r\n  \"chatLink\": \"https://teams.microsoft.com/l/channel/...\",\r\n  \"createdBy\": \"user123\",\r\n  \"createdAt\": \"2025-11-12T17:00:00Z\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "Firestore > studyGroups/{groupId}",
+						"description": "StartFragment\n\nStores study groups. Members can read/write; creator is admin.\n\nEndFragment"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "FIREBASE_WEB_API_KEY",
+			"value": ""
+		}
+	]
+}
