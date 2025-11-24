@@ -2,18 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import EventFormModal from '../components/EventFormModal';
 
+// Events component to display and manage campus events
 const Events = () => {
+  // State for managing event filters, event data, loading status, and modal visibility
   const [filter, setFilter] = useState('all');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
   const { currentUser } = useAuth();
 
+  // Fetch events from Firestore on component mount
   useEffect(() => {
     fetchEvents();
   }, []);
 
+  // Fetches all events from the 'events' collection in Firestore
   const fetchEvents = async () => {
+    setLoading(true);
     try {
       const eventsCollection = collection(db, 'events');
       const eventsSnapshot = await getDocs(eventsCollection);
@@ -29,10 +37,47 @@ const Events = () => {
     }
   };
 
-  const addEvent = async() => {
-    return;
-  }
+  // Handles saving a new or edited event
+  const handleSaveEvent = async (eventData) => {
+    try {
+      if (editingEvent) {
+        // Update existing event if in edit mode
+        const eventRef = doc(db, 'events', editingEvent.id);
+        await updateDoc(eventRef, eventData);
+      } else {
+        // Create a new event with default attendee info
+        await addDoc(collection(db, 'events'), {
+          ...eventData,
+          attendeeIds: [],
+          attendeeCount: 0,
+          creatorId: currentUser.uid
+        });
+      }
+      fetchEvents(); // Refresh the events list
+      setIsModalOpen(false);
+      setEditingEvent(null);
+    } catch (error) {
+      console.error('Error saving event:', error);
+    }
+  };
 
+  // Opens the modal to add a new event
+  const addEvent = () => {
+    setEditingEvent(null);
+    setIsModalOpen(true);
+  };
+
+  // Handles the edit action for an event, with permission check
+  const handleEdit = (event) => {
+    if (currentUser?.uid !== event.creatorId) {
+      alert("You don't have permission to edit this event.");
+      return;
+    }
+    setEditingEvent(event);
+    setIsModalOpen(true);
+  };
+
+  // Handles the RSVP action for an event
   const handleRSVP = async (eventId) => {
     if (!currentUser) return;
     
@@ -41,6 +86,7 @@ const Events = () => {
       const event = events.find(e => e.id === eventId);
       const isRSVPed = event.attendeeIds?.includes(currentUser.uid);
       
+      // Toggle RSVP status
       if (isRSVPed) {
         await updateDoc(eventRef, {
           attendeeIds: arrayRemove(currentUser.uid),
@@ -53,12 +99,13 @@ const Events = () => {
         });
       }
       
-      fetchEvents(); // Refresh events
+      fetchEvents(); // Refresh events to show updated RSVP status
     } catch (error) {
       console.error('Error updating RSVP:', error);
     }
   };
 
+  // Categories for filtering events
   const categories = [
     { id: 'all', label: 'All Events' },
     { id: 'workshop', label: 'Workshops' },
@@ -67,8 +114,10 @@ const Events = () => {
     { id: 'social', label: 'Social' }
   ];
 
+  // Filter events based on the selected category
   const filteredEvents = filter === 'all' ? events : events.filter(event => event.category === filter);
 
+  // Display a loading spinner while events are being fetched
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -80,16 +129,17 @@ const Events = () => {
     );
   }
 
+  // Render the events page
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+        {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Campus Events</h1>
           <p className="text-lg text-gray-600">Discover and join exciting events happening around campus</p>
         </div>
 
-        {/* Filters */}
+        {/* Filter Buttons */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-2">
             {categories.map(category => (
@@ -111,9 +161,10 @@ const Events = () => {
         {/* Events Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredEvents.map(event => (
-            <div key={event.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
-              <div className="p-6">
+            <div key={event.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden flex flex-col">
+              <div className="p-6 flex-grow">
                 <div className="flex items-center justify-between mb-4">
+                  {/* Event Category Badge */}
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                     event.category === 'workshop' ? 'bg-blue-100 text-blue-800' :
                     event.category === 'study' ? 'bg-green-100 text-green-800' :
@@ -126,8 +177,9 @@ const Events = () => {
                 </div>
                 
                 <h3 className="text-xl font-bold text-gray-900 mb-2">{event.title}</h3>
-                <p className="text-gray-600 mb-4">{event.description}</p>
+                <p className="text-gray-600 mb-4 flex-grow">{event.description}</p>
                 
+                {/* Event Details */}
                 <div className="space-y-2 mb-6">
                   <div className="flex items-center text-gray-600">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +195,10 @@ const Events = () => {
                     {event.location}
                   </div>
                 </div>
-                
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="p-6 bg-gray-50 flex items-center gap-2">
                 <button 
                   onClick={() => handleRSVP(event.id)}
                   className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -154,12 +209,21 @@ const Events = () => {
                 >
                   {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
                 </button>
+                {/* Show edit button if the current user is the event creator */}
+                {currentUser?.uid === event.creatorId && (
+                  <button 
+                    onClick={() => handleEdit(event)}
+                    className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Add Event Button */}
+        {/* Floating Action Button to Add Event */}
         <div className="fixed bottom-8 right-8">
           <button
             onClick={addEvent}
@@ -170,6 +234,16 @@ const Events = () => {
           </button>
         </div>
       </div>
+      {/* Modal for adding/editing events */}
+      <EventFormModal 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEvent(null);
+        }}
+        onSave={handleSaveEvent}
+        event={editingEvent}
+      />
     </div>
   );
 };

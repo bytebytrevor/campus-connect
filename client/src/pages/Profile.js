@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,7 +7,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, setUserProfile } = useAuth();
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -17,6 +17,7 @@ const Profile = () => {
     bio: '',
     interests: []
   });
+  const [newInterest, setNewInterest] = useState('');
 
   useEffect(() => {
     if (userProfile) {
@@ -40,9 +41,10 @@ const Profile = () => {
       fetchUserEvents();
       fetchUserGroups();
     }
-  }, [currentUser]);
+  }, [currentUser, activeTab]);
 
   const fetchUserEvents = async () => {
+    if (activeTab !== 'events') return;
     try {
       const eventsQuery = query(
         collection(db, 'events'),
@@ -60,6 +62,7 @@ const Profile = () => {
   };
 
   const fetchUserGroups = async () => {
+    if (activeTab !== 'groups') return;
     try {
       const groupsQuery = query(
         collection(db, 'studyGroups'),
@@ -89,6 +92,10 @@ const Profile = () => {
         bio: profile.bio,
         interests: profile.interests
       });
+      // Also update the user profile in the auth context
+      if (userProfile) {
+        setUserProfile({ ...userProfile, ...profile });
+      }
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -100,6 +107,25 @@ const Profile = () => {
       ...profile,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleAddInterest = () => {
+    if (newInterest && !profile.interests.includes(newInterest)) {
+      setProfile(prev => ({
+        ...prev,
+        interests: [...prev.interests, newInterest]
+      }));
+      setNewInterest('');
+    } else if (profile.interests.includes(newInterest)) {
+      alert('This interest has already been added.');
+    }
+  };
+
+  const handleRemoveInterest = (interestToRemove) => {
+    setProfile(prev => ({
+      ...prev,
+      interests: prev.interests.filter(interest => interest !== interestToRemove)
+    }));
   };
 
   return (
@@ -267,16 +293,39 @@ const Profile = () => {
                   {profile.interests.map((interest, index) => (
                     <span
                       key={index}
-                      className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium"
+                      className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium flex items-center"
                     >
                       {interest}
+                      {isEditing && (
+                        <button 
+                          onClick={() => handleRemoveInterest(interest)}
+                          className="ml-2 text-indigo-600 hover:text-indigo-800"
+                        >
+                          &times;
+                        </button>
+                      )}
                     </span>
                   ))}
+                   {profile.interests.length === 0 && !isEditing && (
+                    <p className="text-gray-500 text-sm">No interests added yet.</p>
+                  )}
                 </div>
                 {isEditing && (
-                  <button className="mt-4 text-indigo-600 text-sm font-medium hover:text-indigo-700">
-                    + Add Interest
-                  </button>
+                  <div className="mt-4 flex gap-2">
+                    <input
+                      type="text"
+                      value={newInterest}
+                      onChange={(e) => setNewInterest(e.target.value)}
+                      placeholder="Add an interest"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button 
+                      onClick={handleAddInterest}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    >
+                      Add
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -288,7 +337,7 @@ const Profile = () => {
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Events</h2>
             <div className="space-y-4">
-              {upcomingEvents.map(event => (
+              {upcomingEvents.length > 0 ? upcomingEvents.map(event => (
                 <div key={event.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div>
                     <h3 className="font-semibold text-gray-900">{event.title}</h3>
@@ -296,7 +345,7 @@ const Profile = () => {
                   </div>
                   <button className="text-indigo-600 hover:text-indigo-700 font-medium">View Details</button>
                 </div>
-              ))}
+              )) : <p className="text-gray-500">You have no upcoming events.</p>}
             </div>
           </div>
         )}
@@ -306,7 +355,7 @@ const Profile = () => {
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">My Study Groups</h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {myGroups.map(group => (
+              {myGroups.length > 0 ? myGroups.map(group => (
                 <div key={group.id} className="border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
@@ -317,7 +366,7 @@ const Profile = () => {
                   <h3 className="font-semibold text-gray-900 mb-4">{group.title}</h3>
                   <button className="text-indigo-600 hover:text-indigo-700 font-medium">View Group</button>
                 </div>
-              ))}
+              )) : <p className="text-gray-500">You are not in any study groups.</p>}
             </div>
           </div>
         )}
@@ -332,8 +381,8 @@ const Profile = () => {
                   <h3 className="font-medium text-gray-900">Email Notifications</h3>
                   <p className="text-gray-600">Receive notifications about events and groups</p>
                 </div>
-                <button className="bg-indigo-600 relative inline-flex h-6 w-11 items-center rounded-full">
-                  <span className="translate-x-6 inline-block h-4 w-4 transform rounded-full bg-white transition"></span>
+                <button className="bg-gray-200 relative inline-flex h-6 w-11 items-center rounded-full">
+                  <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition"></span>
                 </button>
               </div>
               
