@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } 
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import EventFormModal from '../components/EventFormModal';
+import { Trash2 } from 'lucide-react';
 
 // Events component to display and manage campus events
 const Events = () => {
@@ -105,6 +106,33 @@ const Events = () => {
     }
   };
 
+  // Handles deleting an event
+  const handleDelete = async (eventId) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/events/${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include auth token if required by your backend
+          // 'Authorization': `Bearer ${currentUserToken}`
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete event');
+
+      // Remove the deleted event from state so the UI updates
+      setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
+      console.log('Event deleted successfully');
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert(error.message);
+    }
+  };
+
+
   // Categories for filtering events
   const categories = [
     { id: 'all', label: 'All Events' },
@@ -199,6 +227,7 @@ const Events = () => {
               
               {/* Action Buttons */}
               <div className="p-6 bg-gray-50 flex items-center gap-2">
+                {/* Show edit button if the current user is the event creator */}
                 <button 
                   onClick={() => handleRSVP(event.id)}
                   className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
@@ -217,6 +246,18 @@ const Events = () => {
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
                   </button>
+                )}
+                {currentUser?.uid === event.creatorId && (
+                  <>
+
+                    {/* Delete button */}
+                    <button 
+                      onClick={() => handleDelete(event.id)}
+                      className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
+                    >
+                      <Trash2 />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
