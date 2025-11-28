@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { doc, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { Link } from 'react-router-dom';
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   
-  const { currentUser, userProfile, setUserProfile } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -15,9 +17,11 @@ const Profile = () => {
     major: '',
     year: '',
     bio: '',
-    interests: []
+    interests: [],
+    photoURL: ''
   });
   const [newInterest, setNewInterest] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -28,7 +32,8 @@ const Profile = () => {
         major: userProfile.major || '',
         year: userProfile.year || '',
         bio: userProfile.bio || '',
-        interests: userProfile.interests || []
+        interests: userProfile.interests || [],
+        photoURL: userProfile.photoURL || ''
       });
     }
   }, [userProfile, currentUser]);
@@ -79,6 +84,34 @@ const Profile = () => {
     }
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `profilePictures/${currentUser.uid}`);
+      await uploadBytes(storageRef, file);
+      const photoURL = await getDownloadURL(storageRef);
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { photoURL });
+      
+      setProfile(prev => ({ ...prev, photoURL }));
+      alert('Profile picture updated successfully!');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      alert(`Failed to upload photo: ${error.message}. Please check Firebase Storage rules.`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     
@@ -90,12 +123,9 @@ const Profile = () => {
         major: profile.major,
         year: profile.year,
         bio: profile.bio,
-        interests: profile.interests
+        interests: profile.interests,
+        photoURL: profile.photoURL
       });
-      // Also update the user profile in the auth context
-      if (userProfile) {
-        setUserProfile({ ...userProfile, ...profile });
-      }
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -129,28 +159,50 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 pb-20 lg:pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-12">
         {/* Profile Header */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-32"></div>
-          <div className="relative px-8 pb-8">
-            <div className="flex items-end -mt-16">
-              <div className="w-24 h-24 bg-white rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                <span className="text-2xl font-bold text-indigo-600">
-                  {profile.firstName?.[0]}{profile.lastName?.[0]}
-                </span>
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-24 lg:h-40"></div>
+          <div className="relative px-4 sm:px-8 pb-6 lg:pb-10">
+            <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-12 lg:-mt-16">
+              <div className="relative mb-4 sm:mb-0">
+                <div className="w-20 h-20 lg:w-32 lg:h-32 bg-white rounded-full border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
+                  {profile.photoURL ? (
+                    <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl lg:text-4xl font-bold text-indigo-600">
+                      {profile.firstName?.[0]}{profile.lastName?.[0]}
+                    </span>
+                  )}
+                </div>
+                {isEditing && (
+                  <label className="absolute bottom-0 right-0 bg-indigo-600 text-white p-1.5 lg:p-2 rounded-full cursor-pointer hover:bg-indigo-700">
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                    {uploading ? (
+                      <div className="w-3 h-3 lg:w-4 lg:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </label>
+                )}
               </div>
-              <div className="ml-6 pb-2">
-                <h1 className="text-3xl font-bold text-gray-900">
+              <div className="sm:ml-6 text-center sm:text-left flex-1">
+                <h1 className="text-xl lg:text-4xl font-bold text-gray-900 mb-1">
                   {profile.firstName} {profile.lastName}
                 </h1>
-                <p className="text-gray-600">{profile.major} • {profile.year}</p>
+                <p className="text-sm lg:text-lg text-gray-600 mb-2">{profile.major} • {profile.year}</p>
+                {profile.bio && (
+                  <p className="hidden lg:block text-gray-500 text-sm mt-2 max-w-2xl">{profile.bio}</p>
+                )}
               </div>
-              <div className="ml-auto pb-2">
+              <div className="mt-4 sm:mt-0 w-full sm:w-auto">
                 <button
                   onClick={isEditing ? handleSaveProfile : () => setIsEditing(true)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                  className="w-full sm:w-auto bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
                 >
                   {isEditing ? 'Save Changes' : 'Edit Profile'}
                 </button>
@@ -161,8 +213,8 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+            <nav className="flex space-x-1 p-2">
               {[
                 { id: 'profile', label: 'Profile' },
                 { id: 'events', label: 'My Events' },
@@ -172,10 +224,10 @@ const Profile = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
                     activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   {tab.label}
@@ -187,13 +239,13 @@ const Profile = () => {
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Personal Information</h2>
+              <div className="bg-white rounded-xl shadow-sm border p-6 lg:p-8">
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Personal Information</h2>
                 
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4 lg:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                       {isEditing ? (
@@ -230,7 +282,7 @@ const Profile = () => {
                     <p className="text-gray-900">{profile.email}</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Major</label>
                       {isEditing ? (
@@ -287,7 +339,7 @@ const Profile = () => {
             </div>
             
             <div>
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Interests</h3>
                 <div className="flex flex-wrap gap-2">
                   {profile.interests.map((interest, index) => (
@@ -334,8 +386,8 @@ const Profile = () => {
 
         {/* My Events Tab */}
         {activeTab === 'events' && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Upcoming Events</h2>
+          <div className="bg-white rounded-xl shadow-sm border p-6 lg:p-8">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Upcoming Events</h2>
             <div className="space-y-4">
               {upcomingEvents.length > 0 ? upcomingEvents.map(event => (
                 <div key={event.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
@@ -352,9 +404,9 @@ const Profile = () => {
 
         {/* My Groups Tab */}
         {activeTab === 'groups' && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">My Study Groups</h2>
-            <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border p-6 lg:p-8">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">My Study Groups</h2>
+            <div className="grid sm:grid-cols-2 gap-4 lg:gap-6">
               {myGroups.length > 0 ? myGroups.map(group => (
                 <div key={group.id} className="border border-gray-200 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-2">
@@ -364,7 +416,7 @@ const Profile = () => {
                     <span className="text-sm text-gray-500">{group.memberCount || 0} members</span>
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-4">{group.title}</h3>
-                  <button className="text-indigo-600 hover:text-indigo-700 font-medium">View Group</button>
+                  <Link to="/study-groups" className="text-indigo-600 hover:text-indigo-700 font-medium">View Group</Link>
                 </div>
               )) : <p className="text-gray-500">You are not in any study groups.</p>}
             </div>
@@ -373,8 +425,8 @@ const Profile = () => {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Account Settings</h2>
+          <div className="bg-white rounded-xl shadow-sm border p-6 lg:p-8">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Account Settings</h2>
             <div className="space-y-6">
               <div className="flex items-center justify-between py-4 border-b border-gray-200">
                 <div>

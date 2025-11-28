@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import GroupDetailsModal from '../components/GroupDetailsModal';
 
 const StudyGroups = () => {
   const [activeTab, setActiveTab] = useState('browse');
   const [studyGroups, setStudyGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     course: '',
     title: '',
@@ -105,6 +109,19 @@ const StudyGroups = () => {
     });
   };
 
+  const handleOpenChat = (group) => {
+    if (!group.memberIds?.includes(currentUser?.uid)) {
+      alert('You must join the group to access the chat');
+      return;
+    }
+    navigate('/chat', { 
+      state: { 
+        groupId: group.id, 
+        groupTitle: `${group.course} - ${group.title}` 
+      } 
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -119,273 +136,198 @@ const StudyGroups = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Study Groups</h1>
-          <p className="text-lg text-gray-600">Join or create study groups to collaborate with classmates</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { id: 'browse', label: 'Browse Groups' },
-                { id: 'create', label: 'Create Group' },
-                { id: 'my-groups', label: 'My Groups' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Browse Groups Tab */}
-        {activeTab === 'browse' && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {studyGroups.map(group => (
-              <div key={group.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {group.course}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {group.memberCount || 0}/{group.maxMembers} members
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{group.title}</h3>
-                  <p className="text-gray-600 mb-4">{group.description}</p>
-                  
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center text-gray-600">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {group.schedule}
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      </svg>
-                      {group.location}
-                    </div>
-                  </div>
-                  
-                  <div className="flex space-x-3">
-                    <button 
-                      onClick={() => handleJoinGroup(group.id)}
-                      disabled={(group.memberCount || 0) >= group.maxMembers && !group.memberIds?.includes(currentUser?.uid)}
-                      className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                        group.memberIds?.includes(currentUser?.uid)
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : (group.memberCount || 0) >= group.maxMembers
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      }`}
-                    >
-                      {group.memberIds?.includes(currentUser?.uid) 
-                        ? 'Leave Group' 
-                        : (group.memberCount || 0) >= group.maxMembers 
-                        ? 'Full' 
-                        : 'Join Group'
-                      }
-                    </button>
-                    <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Create Group Tab */}
-        {activeTab === 'create' && (
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Create a New Study Group</h2>
-              
-              <form className="space-y-6" onSubmit={handleCreateGroup}>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Course Code</label>
-                  <input
-                    type="text"
-                    name="course"
-                    value={formData.course}
-                    onChange={handleInputChange}
-                    placeholder="e.g., CS 101"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Title</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Intro to Programming Study Group"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea
-                    rows={3}
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Describe what your study group will focus on..."
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Members</label>
-                    <select 
-                      name="maxMembers"
-                      value={formData.maxMembers}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="4">4</option>
-                      <option value="6">6</option>
-                      <option value="8">8</option>
-                      <option value="10">10</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Meeting Day</label>
-                    <select 
-                      name="meetingDay"
-                      value={formData.meetingDay}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="">Select day</option>
-                      <option value="Monday">Monday</option>
-                      <option value="Tuesday">Tuesday</option>
-                      <option value="Wednesday">Wednesday</option>
-                      <option value="Thursday">Thursday</option>
-                      <option value="Friday">Friday</option>
-                      <option value="Saturday">Saturday</option>
-                      <option value="Sunday">Sunday</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Meeting Time</label>
-                    <input
-                      type="time"
-                      name="meetingTime"
-                      value={formData.meetingTime}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                    <input
-                      type="text"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleInputChange}
-                      placeholder="e.g., Library Room 205"
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-                
-                <button
-                  type="submit"
-                  className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                >
-                  Create Study Group
-                </button>
-              </form>
+        {/* Mobile Header */}
+        <div className="lg:hidden mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <button className="mr-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">Study Groups</h1>
             </div>
           </div>
-        )}
+          
+          <button 
+            onClick={() => setActiveTab('create')}
+            className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium mb-6 flex items-center justify-center hover:bg-indigo-700 transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create New Group
+          </button>
+        </div>
 
-        {/* My Groups Tab */}
-        {activeTab === 'my-groups' && (
-          <div>
-            {studyGroups.filter(group => group.memberIds?.includes(currentUser?.uid)).length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {studyGroups
-                  .filter(group => group.memberIds?.includes(currentUser?.uid))
-                  .map(group => (
-                    <div key={group.id} className="bg-white rounded-xl shadow-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-                          {group.course}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {group.memberCount || 0}/{group.maxMembers} members
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{group.title}</h3>
-                      <p className="text-gray-600 mb-4">{group.description}</p>
-                      <div className="space-y-2">
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {group.schedule}
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          </svg>
-                          {group.location}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                }
+        {/* Desktop Header */}
+        <div className="hidden lg:flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Study Groups</h1>
+          <button 
+            onClick={() => setActiveTab('create')}
+            className="bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium flex items-center hover:bg-indigo-700 transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create New Group
+          </button>
+        </div>
+
+        {/* Create Group Form */}
+        {activeTab === 'create' && (
+          <div className="bg-white rounded-lg border p-6 mb-6">
+            <h2 className="text-xl font-bold mb-4">Create Study Group</h2>
+            <form onSubmit={handleCreateGroup} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  name="course"
+                  placeholder="Course Code (e.g., CS 301)"
+                  value={formData.course}
+                  onChange={handleInputChange}
+                  required
+                  className="border rounded-lg px-4 py-2"
+                />
+                <input
+                  type="text"
+                  name="title"
+                  placeholder="Group Title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                  className="border rounded-lg px-4 py-2"
+                />
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-6xl mb-4">📚</div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">No study groups yet</h3>
-                <p className="text-gray-600 mb-6">Join or create your first study group to get started</p>
-                <button
+              <textarea
+                name="description"
+                placeholder="Description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows="3"
+                className="w-full border rounded-lg px-4 py-2"
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  type="number"
+                  name="maxMembers"
+                  placeholder="Max Members"
+                  value={formData.maxMembers}
+                  onChange={handleInputChange}
+                  min="2"
+                  required
+                  className="border rounded-lg px-4 py-2"
+                />
+                <input
+                  type="text"
+                  name="meetingDay"
+                  placeholder="Meeting Day"
+                  value={formData.meetingDay}
+                  onChange={handleInputChange}
+                  className="border rounded-lg px-4 py-2"
+                />
+                <input
+                  type="text"
+                  name="meetingTime"
+                  placeholder="Meeting Time"
+                  value={formData.meetingTime}
+                  onChange={handleInputChange}
+                  className="border rounded-lg px-4 py-2"
+                />
+              </div>
+              <input
+                type="text"
+                name="location"
+                placeholder="Location"
+                value={formData.location}
+                onChange={handleInputChange}
+                className="w-full border rounded-lg px-4 py-2"
+              />
+              <div className="flex gap-2">
+                <button type="submit" className="bg-indigo-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-indigo-700">
+                  Create Group
+                </button>
+                <button 
+                  type="button" 
                   onClick={() => setActiveTab('browse')}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                  className="border border-gray-300 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-50"
                 >
-                  Browse Groups
+                  Cancel
                 </button>
               </div>
-            )}
+            </form>
           </div>
         )}
+
+        {/* Study Groups Grid */}
+        <div className="space-y-4 lg:grid lg:grid-cols-3 lg:gap-6 lg:space-y-0">
+          {studyGroups.map(group => {
+            const isMember = group.memberIds?.includes(currentUser?.uid);
+            const isFull = (group.memberCount || 0) >= group.maxMembers;
+            
+            return (
+              <div key={group.id} className="bg-white rounded-lg border p-4 lg:p-6">
+                <div className="flex items-center justify-between mb-3 lg:mb-4">
+                  <div>
+                    <h3 className="font-bold text-gray-900">{group.course}</h3>
+                    <p className="text-sm text-gray-600">{group.title}</p>
+                  </div>
+                  <div className="flex items-center text-gray-500">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                    {group.memberCount || 0}/{group.maxMembers}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedGroup(group)}
+                  className="text-indigo-600 hover:text-indigo-700 text-sm font-medium mb-2"
+                >
+                  View Details
+                </button>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleOpenChat(group)}
+                    disabled={!isMember}
+                    className={`flex-1 border py-2 px-3 rounded text-sm lg:text-base font-medium ${
+                      isMember 
+                        ? 'border-gray-300 text-gray-700 hover:bg-gray-50' 
+                        : 'border-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Chat
+                  </button>
+                  <button 
+                    onClick={() => handleJoinGroup(group.id)}
+                    disabled={!isMember && isFull}
+                    className={`py-2 px-4 rounded text-sm lg:text-base font-medium transition-colors ${
+                      isMember 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : isFull
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {isMember ? 'Leave' : isFull ? 'Full' : 'Join'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {selectedGroup && (
+        <GroupDetailsModal
+          group={selectedGroup}
+          currentUser={currentUser}
+          onClose={() => setSelectedGroup(null)}
+          onUpdate={fetchStudyGroups}
+        />
+      )}
     </div>
   );
 };

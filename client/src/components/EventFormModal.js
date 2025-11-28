@@ -7,7 +7,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, event }) => {
     date: '',
     time: '',
     location: '',
-    category: 'social',
+    category: 'workshop',
     description: ''
   });
   const { currentUser } = useAuth();
@@ -21,7 +21,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, event }) => {
         date: '',
         time: '',
         location: '',
-        category: 'social',
+        category: 'workshop',
         description: ''
       });
     }
@@ -64,10 +64,9 @@ const EventFormModal = ({ isOpen, onClose, onSave, event }) => {
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="social">Social</option>
               <option value="workshop">Workshop</option>
-              <option value="study">Study Group</option>
-              <option value="career">Career</option>
+              <option value="lecture">Lecture</option>
+              <option value="club">Club</option>
             </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } 
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import EventFormModal from '../components/EventFormModal';
+import EventDetailsModal from '../components/EventDetailsModal';
 import { Trash2 } from 'lucide-react';
 
 // Events component to display and manage campus events
@@ -13,6 +14,7 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const { currentUser } = useAuth();
 
   // Fetch events from Firestore on component mount
@@ -161,119 +163,157 @@ const Events = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Campus Events</h1>
-          <p className="text-lg text-gray-600">Discover and join exciting events happening around campus</p>
-        </div>
-
-        {/* Filter Buttons */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-2">
-            {categories.map(category => (
-              <button
-                key={category.id}
-                onClick={() => setFilter(category.id)}
-                className={`px-4 py-2 rounded-full font-medium transition-colors ${
-                  filter === category.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                {category.label}
-              </button>
-            ))}
+        {/* Mobile Header */}
+        <div className="lg:hidden mb-6">
+          <div className="flex items-center mb-4">
+            <button className="mr-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">Events</h1>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="relative mb-4">
+            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search events..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          
+          {/* Filter Buttons */}
+          <div className="flex gap-2 mb-6">
+            <button 
+              onClick={() => setFilter('workshop')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Workshop
+            </button>
+            <button 
+              onClick={() => setFilter('lecture')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Lecture
+            </button>
+            <button 
+              onClick={() => setFilter('club')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Club
+            </button>
           </div>
         </div>
 
-        {/* Events Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Desktop Header */}
+        <div className="hidden lg:block mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Events</h1>
+          
+          <div className="flex items-center gap-4 mb-6">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search events..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            
+            {/* Filters Button */}
+            <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+              </svg>
+              Filters
+            </button>
+          </div>
+          
+          {/* Filter Buttons */}
+          <div className="flex gap-2 mb-6">
+            <button 
+              onClick={() => setFilter('workshop')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Workshop
+            </button>
+            <button 
+              onClick={() => setFilter('lecture')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Lecture
+            </button>
+            <button 
+              onClick={() => setFilter('club')}
+              className={`px-4 py-2 rounded font-medium ${
+                filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+              }`}
+            >
+              Club
+            </button>
+          </div>
+        </div>
+
+        {/* Events List */}
+        <div className="space-y-4">
           {filteredEvents.map(event => (
-            <div key={event.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden flex flex-col">
-              <div className="p-6 flex-grow">
-                <div className="flex items-center justify-between mb-4">
-                  {/* Event Category Badge */}
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    event.category === 'workshop' ? 'bg-blue-100 text-blue-800' :
-                    event.category === 'study' ? 'bg-green-100 text-green-800' :
-                    event.category === 'career' ? 'bg-purple-100 text-purple-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
-                  </span>
-                  <span className="text-sm text-gray-500">{event.attendeeCount || 0} attending</span>
-                </div>
-                
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{event.title}</h3>
-                <p className="text-gray-600 mb-4 flex-grow">{event.description}</p>
-                
-                {/* Event Details */}
-                <div className="space-y-2 mb-6">
-                  <div className="flex items-center text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div key={event.id} className="bg-white rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 cursor-pointer" onClick={() => setSelectedEvent(event)}>
+                  <h3 className="font-semibold text-gray-900">{event.title}</h3>
+                  <div className="flex items-center text-sm text-gray-600 mt-1">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {event.date} at {event.time}
+                    {event.date} - {event.time}
                   </div>
-                  <div className="flex items-center text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center text-sm text-gray-600 mt-1">
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     {event.location}
                   </div>
                 </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="p-6 bg-gray-50 flex items-center gap-2">
-                {/* Show edit button if the current user is the event creator */}
                 <button 
                   onClick={() => handleRSVP(event.id)}
-                  className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 rounded font-medium transition-colors ${
                     event.attendeeIds?.includes(currentUser?.uid)
                       ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-indigo-600 text-white hover:bg-indigo-700'
                   }`}
                 >
-                  {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
+                  {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP'}
                 </button>
-                {/* Show edit button if the current user is the event creator */}
-                {currentUser?.uid === event.creatorId && (
-                  <button 
-                    onClick={() => handleEdit(event)}
-                    className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
-                  </button>
-                )}
-                {currentUser?.uid === event.creatorId && (
-                  <>
-
-                    {/* Delete button */}
-                    <button 
-                      onClick={() => handleDelete(event.id)}
-                      className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
-                    >
-                      <Trash2 />
-                    </button>
-                  </>
-                )}
               </div>
             </div>
           ))}
         </div>
-
-        {/* Floating Action Button to Add Event */}
-        <div className="fixed bottom-8 right-8">
-          <button
-            onClick={addEvent}
-            className="bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-        </div>
+        
+        {/* Floating Action Button */}
+        <button
+          onClick={addEvent}
+          className="fixed bottom-20 lg:bottom-8 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 transition-colors z-10"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
       </div>
       {/* Modal for adding/editing events */}
       <EventFormModal 
@@ -285,6 +325,16 @@ const Events = () => {
         onSave={handleSaveEvent}
         event={editingEvent}
       />
+
+      {selectedEvent && (
+        <EventDetailsModal
+          event={selectedEvent}
+          currentUser={currentUser}
+          onClose={() => setSelectedEvent(null)}
+          onUpdate={fetchEvents}
+          onRSVP={handleRSVP}
+        />
+      )}
     </div>
   );
 };
