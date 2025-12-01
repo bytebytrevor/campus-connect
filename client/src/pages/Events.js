@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/eventsApi';
 import { useAuth } from '../contexts/AuthContext';
 import EventFormModal from '../components/EventFormModal';
 import { Trash2 } from 'lucide-react';
@@ -24,12 +23,7 @@ const Events = () => {
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const eventsCollection = collection(db, 'events');
-      const eventsSnapshot = await getDocs(eventsCollection);
-      const eventsData = eventsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const eventsData = await getEvents();
       setEvents(eventsData);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -43,16 +37,17 @@ const Events = () => {
     try {
       if (editingEvent) {
         // Update existing event if in edit mode
-        const eventRef = doc(db, 'events', editingEvent.id);
-        await updateDoc(eventRef, eventData);
+        await updateEvent(editingEvent.id, eventData);
+        alert('Event updated successfully!');
       } else {
         // Create a new event with default attendee info
-        await addDoc(collection(db, 'events'), {
+        await createEvent({
           ...eventData,
           attendeeIds: [],
           attendeeCount: 0,
           creatorId: currentUser.uid
         });
+        alert('Event created successfully!');
       }
       fetchEvents(); // Refresh the events list
       setIsModalOpen(false);
@@ -77,6 +72,19 @@ const Events = () => {
     setEditingEvent(event);
     setIsModalOpen(true);
   };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      try {
+        await deleteEvent(id);
+        alert('Event deleted successfully!');
+        fetchEvents();
+      } catch (error) {
+        console.error('Error deleting event:', error);
+      }
+    }
+  };
+
 
   // Handles the RSVP action for an event
   const handleRSVP = async (eventId) => {
@@ -240,12 +248,17 @@ const Events = () => {
                 </button>
                 {/* Show edit button if the current user is the event creator */}
                 {currentUser?.uid === event.creatorId && (
-                  <button 
+                  <><button
                     onClick={() => handleEdit(event)}
                     className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
-                  </button>
+                  </button><button
+                    onClick={() => handleDelete(event.id)}
+                    className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
+                  >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button></>
                 )}
                 {currentUser?.uid === event.creatorId && (
                   <>
