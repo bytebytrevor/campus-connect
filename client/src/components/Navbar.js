@@ -41,6 +41,7 @@ const Navbar = () => {
                 { path: '/', label: 'Home' },
                 { path: '/events', label: 'Events' },
                 { path: '/study-groups', label: 'Study Groups' },
+                { path: '/chat', label: 'Chat' },
                 { path: '/profile', label: 'Profile' }
               ].map(({ path, label }) => (
                 <Link
