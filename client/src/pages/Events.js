@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/eventsApi';
+import { getBuildings } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EventFormModal from '../components/EventFormModal';
+import InfoModal from '../components/InfoModal';
+import Map from '../components/Map';
 
 // Events component to display and manage campus events
 const Events = () => {
@@ -12,11 +15,26 @@ const Events = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const { currentUser } = useAuth();
+  const [view, setView] = useState('grid');
+  const [buildings, setBuildings] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+
 
   // Fetch events from Firestore on component mount
   useEffect(() => {
     fetchEvents();
+    fetchBuildings();
   }, []);
+
+  const fetchBuildings = async () => {
+    try {
+      const response = await getBuildings();
+      setBuildings(response.data);
+    } catch (error) {
+      console.error('Error fetching buildings:', error);
+    }
+  }
 
   // Fetches all events from the 'events' collection in Firestore
   const fetchEvents = async () => {
@@ -113,6 +131,11 @@ const Events = () => {
     }
   };
 
+  const handleMarkerClick = (event) => {
+    setSelectedEvent(event);
+    setIsInfoModalOpen(true);
+  };
+
   // Categories for filtering events
   const categories = [
     { id: 'all', label: 'All Events' },
@@ -142,9 +165,16 @@ const Events = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Campus Events</h1>
-          <p className="text-lg text-gray-600">Discover and join exciting events happening around campus</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Campus Events</h1>
+            <p className="text-lg text-gray-600">Discover and join exciting events happening around campus</p>
+          </div>
+          <div>
+            <button onClick={() => setView(view === 'grid' ? 'map' : 'grid')} className="bg-indigo-600 text-white px-4 py-2 rounded-lg">
+              {view === 'grid' ? 'Map View' : 'Grid View'}
+            </button>
+          </div>
         </div>
 
         {/* Filter Buttons */}
@@ -166,75 +196,80 @@ const Events = () => {
           </div>
         </div>
 
-        {/* Events Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map(event => (
-            <div key={event.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden flex flex-col">
-              <div className="p-6 flex-grow">
-                <div className="flex items-center justify-between mb-4">
-                  {/* Event Category Badge */}
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    event.category === 'workshop' ? 'bg-blue-100 text-blue-800' :
-                    event.category === 'study' ? 'bg-green-100 text-green-800' :
-                    event.category === 'career' ? 'bg-purple-100 text-purple-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
-                  </span>
-                  <span className="text-sm text-gray-500">{event.attendeeCount || 0} attending</span>
+        {view === 'grid' ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map(event => (
+              <div key={event.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow overflow-hidden flex flex-col">
+                <div className="p-6 flex-grow">
+                  <div className="flex items-center justify-between mb-4">
+                    {/* Event Category Badge */}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      event.category === 'workshop' ? 'bg-blue-100 text-blue-800' :
+                      event.category === 'study' ? 'bg-green-100 text-green-800' :
+                      event.category === 'career' ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                    </span>
+                    <span className="text-sm text-gray-500">{event.attendeeCount || 0} attending</span>
+                  </div>
+                  
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{event.title}</h3>
+                  <p className="text-gray-600 mb-4 flex-grow">{event.description}</p>
+                  
+                  {/* Event Details */}
+                  <div className="space-y-2 mb-6">
+                    <div className="flex items-center text-gray-600">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {event.date} at {event.time}
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {event.location}
+                    </div>
+                  </div>
                 </div>
                 
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{event.title}</h3>
-                <p className="text-gray-600 mb-4 flex-grow">{event.description}</p>
-                
-                {/* Event Details */}
-                <div className="space-y-2 mb-6">
-                  <div className="flex items-center text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    {event.date} at {event.time}
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {event.location}
-                  </div>
+                {/* Action Buttons */}
+                <div className="p-6 bg-gray-50 flex items-center gap-2">
+                  <button 
+                    onClick={() => handleRSVP(event.id)}
+                    className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                      event.attendeeIds?.includes(currentUser?.uid)
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
+                  </button>
+                  {/* Show edit button if the current user is the event creator */}
+                  {currentUser?.uid === event.creatorId && (
+                    <><button
+                      onClick={() => handleEdit(event)}
+                      className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
+                    </button><button
+                      onClick={() => handleDelete(event.id)}
+                      className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                      </button></>
+                  )}
                 </div>
               </div>
-              
-              {/* Action Buttons */}
-              <div className="p-6 bg-gray-50 flex items-center gap-2">
-                <button 
-                  onClick={() => handleRSVP(event.id)}
-                  className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                    event.attendeeIds?.includes(currentUser?.uid)
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
-                >
-                  {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
-                </button>
-                {/* Show edit button if the current user is the event creator */}
-                {currentUser?.uid === event.creatorId && (
-                  <><button
-                    onClick={() => handleEdit(event)}
-                    className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
-                  </button><button
-                    onClick={() => handleDelete(event.id)}
-                    className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
-                  >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button></>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ height: '500px', width: '100%' }}>
+            <Map events={filteredEvents} buildings={buildings} onMarkerClick={handleMarkerClick} />
+          </div>
+        )}
 
         {/* Floating Action Button to Add Event */}
         <div className="fixed bottom-8 right-8">
@@ -256,6 +291,11 @@ const Events = () => {
         }}
         onSave={handleSaveEvent}
         event={editingEvent}
+      />
+      <InfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => setIsInfoModalOpen(false)}
+        item={selectedEvent}
       />
     </div>
   );

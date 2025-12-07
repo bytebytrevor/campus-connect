@@ -11,7 +11,9 @@ export const sendMessage = async (message) => {
 export const onMessagesSnapshot = (callback) => {
   const q = query(messagesCollection, orderBy('createdAt'));
   return onSnapshot(q, (snapshot) => {
+    console.log("Snapshot received in chatApi:", snapshot.docs.length, "documents");
     const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log("Messages processed in chatApi:", messages);
     callback(messages);
   });
 };

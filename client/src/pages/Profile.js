@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import InfoModal from '../components/InfoModal';
+import GroupInfoModal from '../components/GroupInfoModal';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -18,6 +20,10 @@ const Profile = () => {
     interests: []
   });
   const [newInterest, setNewInterest] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -80,9 +86,15 @@ const Profile = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (!currentUser) return;
+    console.log("handleSaveProfile called");
+    if (!currentUser) {
+      console.log("No current user, returning.");
+      return;
+    }
     
     try {
+      console.log("Attempting to update profile for user:", currentUser.uid);
+      console.log("Profile data to save:", profile);
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
         firstName: profile.firstName,
@@ -92,13 +104,17 @@ const Profile = () => {
         bio: profile.bio,
         interests: profile.interests
       });
+      console.log("Profile updated successfully in Firestore.");
       // Also update the user profile in the auth context
       if (userProfile) {
         setUserProfile({ ...userProfile, ...profile });
+        console.log("User profile updated in context.");
       }
       setIsEditing(false);
+      alert('Profile saved successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Error saving profile. Please try again.');
     }
   };
 
@@ -126,6 +142,20 @@ const Profile = () => {
       ...prev,
       interests: prev.interests.filter(interest => interest !== interestToRemove)
     }));
+  };
+
+  const handleViewEventDetails = (event) => {
+    console.log("handleViewEventDetails called with event:", event);
+    setSelectedEvent(event);
+    setIsInfoModalOpen(true);
+    alert('Showing event details.');
+  };
+
+  const handleViewGroupDetails = (group) => {
+    console.log("handleViewGroupDetails called with group:", group);
+    setSelectedGroup(group);
+    setIsGroupModalOpen(true);
+    alert('Showing group details.');
   };
 
   return (
@@ -343,7 +373,7 @@ const Profile = () => {
                     <h3 className="font-semibold text-gray-900">{event.title}</h3>
                     <p className="text-gray-600">{event.date} at {event.time}</p>
                   </div>
-                  <button className="text-indigo-600 hover:text-indigo-700 font-medium">View Details</button>
+                  <button onClick={() => handleViewEventDetails(event)} className="text-indigo-600 hover:text-indigo-700 font-medium">View Details</button>
                 </div>
               )) : <p className="text-gray-500">You have no upcoming events.</p>}
             </div>
@@ -364,7 +394,7 @@ const Profile = () => {
                     <span className="text-sm text-gray-500">{group.memberCount || 0} members</span>
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-4">{group.title}</h3>
-                  <button className="text-indigo-600 hover:text-indigo-700 font-medium">View Group</button>
+                  <button onClick={() => handleViewGroupDetails(group)} className="text-indigo-600 hover:text-indigo-700 font-medium">View Group</button>
                 </div>
               )) : <p className="text-gray-500">You are not in any study groups.</p>}
             </div>
@@ -399,6 +429,16 @@ const Profile = () => {
           </div>
         )}
       </div>
+      <InfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => setIsInfoModalOpen(false)}
+        item={selectedEvent}
+      />
+      <GroupInfoModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        item={selectedGroup}
+      />
     </div>
   );
 };
