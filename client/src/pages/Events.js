@@ -3,8 +3,7 @@ import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/ev
 import { getBuildings } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EventFormModal from '../components/EventFormModal';
-import InfoModal from '../components/InfoModal';
-import Map from '../components/Map';
+import { Trash2 } from 'lucide-react';
 
 // Events component to display and manage campus events
 const Events = () => {
@@ -131,10 +130,32 @@ const Events = () => {
     }
   };
 
-  const handleMarkerClick = (event) => {
-    setSelectedEvent(event);
-    setIsInfoModalOpen(true);
+  // Handles deleting an event
+  const handleDelete = async (eventId) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/events/${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include auth token if required by your backend
+          // 'Authorization': `Bearer ${currentUserToken}`
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete event');
+
+      // Remove the deleted event from state so the UI updates
+      setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
+      console.log('Event deleted successfully');
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert(error.message);
+    }
   };
+
 
   // Categories for filtering events
   const categories = [
@@ -234,34 +255,47 @@ const Events = () => {
                     </div>
                   </div>
                 </div>
-                
-                {/* Action Buttons */}
-                <div className="p-6 bg-gray-50 flex items-center gap-2">
-                  <button 
-                    onClick={() => handleRSVP(event.id)}
-                    className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                      event.attendeeIds?.includes(currentUser?.uid)
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="p-6 bg-gray-50 flex items-center gap-2">
+                {/* Show edit button if the current user is the event creator */}
+                <button 
+                  onClick={() => handleRSVP(event.id)}
+                  className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                    event.attendeeIds?.includes(currentUser?.uid)
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
+                </button>
+                {/* Show edit button if the current user is the event creator */}
+                {currentUser?.uid === event.creatorId && (
+                  <><button
+                    onClick={() => handleEdit(event)}
+                    className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                   >
-                    {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP Now'}
-                  </button>
-                  {/* Show edit button if the current user is the event creator */}
-                  {currentUser?.uid === event.creatorId && (
-                    <><button
-                      onClick={() => handleEdit(event)}
-                      className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
-                    </button><button
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
+                  </button><button
+                    onClick={() => handleDelete(event.id)}
+                    className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
+                  >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button></>
+                )}
+                {currentUser?.uid === event.creatorId && (
+                  <>
+
+                    {/* Delete button */}
+                    <button 
                       onClick={() => handleDelete(event.id)}
                       className="p-2 bg-red-200 text-red-700 rounded-lg hover:bg-red-300"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                      </button></>
-                  )}
-                </div>
+                      <Trash2 />
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
