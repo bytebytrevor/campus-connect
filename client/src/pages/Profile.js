@@ -4,12 +4,14 @@ import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/fire
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
-  
+
   const { currentUser, userProfile } = useAuth();
+  const { addNotification } = useNotification();
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -18,7 +20,8 @@ const Profile = () => {
     year: '',
     bio: '',
     interests: [],
-    photoURL: ''
+    photoURL: '',
+    notificationsEnabled: true
   });
   const [newInterest, setNewInterest] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -33,7 +36,8 @@ const Profile = () => {
         year: userProfile.year || '',
         bio: userProfile.bio || '',
         interests: userProfile.interests || [],
-        photoURL: userProfile.photoURL || ''
+        photoURL: userProfile.photoURL || '',
+        notificationsEnabled: userProfile.notificationsEnabled !== false // Default to true
       });
     }
   }, [userProfile, currentUser]);
@@ -89,7 +93,7 @@ const Profile = () => {
     if (!file || !currentUser) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      addNotification('File size must be less than 5MB', 'error');
       return;
     }
 
@@ -98,15 +102,15 @@ const Profile = () => {
       const storageRef = ref(storage, `profilePictures/${currentUser.uid}`);
       await uploadBytes(storageRef, file);
       const photoURL = await getDownloadURL(storageRef);
-      
+
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, { photoURL });
-      
+
       setProfile(prev => ({ ...prev, photoURL }));
-      alert('Profile picture updated successfully!');
+      addNotification('Profile picture updated successfully!', 'success');
     } catch (error) {
       console.error('Error uploading photo:', error);
-      alert(`Failed to upload photo: ${error.message}. Please check Firebase Storage rules.`);
+      addNotification(`Failed to upload photo: ${error.message}. Please check Firebase Storage rules.`, 'error');
     } finally {
       setUploading(false);
     }
@@ -114,7 +118,7 @@ const Profile = () => {
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
-    
+
     try {
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
@@ -124,11 +128,14 @@ const Profile = () => {
         year: profile.year,
         bio: profile.bio,
         interests: profile.interests,
-        photoURL: profile.photoURL
+        photoURL: profile.photoURL,
+        notificationsEnabled: profile.notificationsEnabled
       });
       setIsEditing(false);
+      addNotification('Profile updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
+      addNotification('Failed to update profile. Please try again.', 'error');
     }
   };
 
@@ -147,7 +154,7 @@ const Profile = () => {
       }));
       setNewInterest('');
     } else if (profile.interests.includes(newInterest)) {
-      alert('This interest has already been added.');
+      addNotification('This interest has already been added.', 'warning');
     }
   };
 
@@ -155,6 +162,13 @@ const Profile = () => {
     setProfile(prev => ({
       ...prev,
       interests: prev.interests.filter(interest => interest !== interestToRemove)
+    }));
+  };
+
+  const handleToggleNotifications = () => {
+    setProfile(prev => ({
+      ...prev,
+      notificationsEnabled: !prev.notificationsEnabled
     }));
   };
 
@@ -224,11 +238,10 @@ const Profile = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeTab === tab.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -243,7 +256,7 @@ const Profile = () => {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm border p-6 lg:p-8">
                 <h2 className="text-xl lg:text-2xl font-bold text-gray-900 mb-4 lg:mb-6">Personal Information</h2>
-                
+
                 <div className="space-y-4 lg:space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -260,7 +273,7 @@ const Profile = () => {
                         <p className="text-gray-900">{profile.firstName}</p>
                       )}
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                       {isEditing ? (
@@ -276,12 +289,12 @@ const Profile = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <p className="text-gray-900">{profile.email}</p>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Major</label>
@@ -297,11 +310,11 @@ const Profile = () => {
                         <p className="text-gray-900">{profile.major}</p>
                       )}
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
                       {isEditing ? (
-                        <select 
+                        <select
                           name="year"
                           value={profile.year}
                           onChange={handleInputChange}
@@ -319,7 +332,7 @@ const Profile = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
                     {isEditing ? (
@@ -337,7 +350,7 @@ const Profile = () => {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Interests</h3>
@@ -349,7 +362,7 @@ const Profile = () => {
                     >
                       {interest}
                       {isEditing && (
-                        <button 
+                        <button
                           onClick={() => handleRemoveInterest(interest)}
                           className="ml-2 text-indigo-600 hover:text-indigo-800"
                         >
@@ -358,7 +371,7 @@ const Profile = () => {
                       )}
                     </span>
                   ))}
-                   {profile.interests.length === 0 && !isEditing && (
+                  {profile.interests.length === 0 && !isEditing && (
                     <p className="text-gray-500 text-sm">No interests added yet.</p>
                   )}
                 </div>
@@ -371,7 +384,7 @@ const Profile = () => {
                       placeholder="Add an interest"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
-                    <button 
+                    <button
                       onClick={handleAddInterest}
                       className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                     >
@@ -433,11 +446,16 @@ const Profile = () => {
                   <h3 className="font-medium text-gray-900">Email Notifications</h3>
                   <p className="text-gray-600">Receive notifications about events and groups</p>
                 </div>
-                <button className="bg-gray-200 relative inline-flex h-6 w-11 items-center rounded-full">
-                  <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition"></span>
+                <button
+                  onClick={handleToggleNotifications}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.notificationsEnabled ? 'bg-indigo-600' : 'bg-gray-200'
+                    }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${profile.notificationsEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}></span>
                 </button>
               </div>
-              
+
               <div className="flex items-center justify-between py-4 border-b border-gray-200">
                 <div>
                   <h3 className="font-medium text-gray-900">Profile Visibility</h3>

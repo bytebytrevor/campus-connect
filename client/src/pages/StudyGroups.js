@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import GroupDetailsModal from '../components/GroupDetailsModal';
+import MapLocationPicker from '../components/MapLocationPicker';
 
 const StudyGroups = () => {
   const [activeTab, setActiveTab] = useState('browse');
@@ -18,9 +20,12 @@ const StudyGroups = () => {
     maxMembers: '6',
     meetingDay: '',
     meetingTime: '',
-    location: ''
+    location: '',
+    lat: null,
+    lng: null
   });
   const { currentUser } = useAuth();
+  const { addNotification } = useNotification();
 
   useEffect(() => {
     fetchStudyGroups();
@@ -44,36 +49,45 @@ const StudyGroups = () => {
 
   const handleJoinGroup = async (groupId) => {
     if (!currentUser) return;
-    
+
     try {
       const groupRef = doc(db, 'studyGroups', groupId);
       const group = studyGroups.find(g => g.id === groupId);
       const isMember = group.memberIds?.includes(currentUser.uid);
-      
+
       if (isMember) {
         await updateDoc(groupRef, {
           memberIds: arrayRemove(currentUser.uid),
           memberCount: (group.memberCount || 1) - 1
         });
+        addNotification('Left the study group successfully', 'info');
       } else {
         if ((group.memberCount || 0) < group.maxMembers) {
           await updateDoc(groupRef, {
             memberIds: arrayUnion(currentUser.uid),
             memberCount: (group.memberCount || 0) + 1
           });
+          addNotification('Joined the study group successfully!', 'success', 5000, {
+            label: 'View Group',
+            onClick: () => navigate('/study-groups')
+          });
+        } else {
+          addNotification('Group is full', 'warning');
+          return;
         }
       }
-      
+
       fetchStudyGroups();
     } catch (error) {
       console.error('Error joining/leaving group:', error);
+      addNotification('Failed to update group membership. Please try again.', 'error');
     }
   };
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!currentUser) return;
-    
+
     try {
       await addDoc(collection(db, 'studyGroups'), {
         ...formData,
@@ -84,7 +98,7 @@ const StudyGroups = () => {
         createdAt: new Date(),
         schedule: `${formData.meetingDay}s ${formData.meetingTime}`
       });
-      
+
       setFormData({
         course: '',
         title: '',
@@ -92,13 +106,17 @@ const StudyGroups = () => {
         maxMembers: '6',
         meetingDay: '',
         meetingTime: '',
-        location: ''
+        location: '',
+        lat: null,
+        lng: null
       });
-      
+
       setActiveTab('browse');
       fetchStudyGroups();
+      addNotification('Study group created successfully!', 'success');
     } catch (error) {
       console.error('Error creating study group:', error);
+      addNotification('Failed to create study group. Please try again.', 'error');
     }
   };
 
@@ -109,16 +127,25 @@ const StudyGroups = () => {
     });
   };
 
+  const handleLocationSelect = (latlng) => {
+    setFormData({
+      ...formData,
+      lat: latlng.lat,
+      lng: latlng.lng,
+      location: `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`
+    });
+  };
+
   const handleOpenChat = (group) => {
     if (!group.memberIds?.includes(currentUser?.uid)) {
-      alert('You must join the group to access the chat');
+      addNotification('You must join the group to access the chat', 'warning');
       return;
     }
-    navigate('/chat', { 
-      state: { 
-        groupId: group.id, 
-        groupTitle: `${group.course} - ${group.title}` 
-      } 
+    navigate('/chat', {
+      state: {
+        groupId: group.id,
+        groupTitle: `${group.course} - ${group.title}`
+      }
     });
   };
 
@@ -148,8 +175,8 @@ const StudyGroups = () => {
               <h1 className="text-xl font-bold text-gray-900">Study Groups</h1>
             </div>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setActiveTab('create')}
             className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium mb-6 flex items-center justify-center hover:bg-indigo-700 transition-colors"
           >
@@ -163,7 +190,7 @@ const StudyGroups = () => {
         {/* Desktop Header */}
         <div className="hidden lg:flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Study Groups</h1>
-          <button 
+          <button
             onClick={() => setActiveTab('create')}
             className="bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium flex items-center hover:bg-indigo-700 transition-colors"
           >
@@ -176,7 +203,7 @@ const StudyGroups = () => {
 
         {/* Create Group Form */}
         {activeTab === 'create' && (
-          <div className="bg-white rounded-lg border p-6 mb-6">
+          <div className="bg-white rounded-lg border p-6 mb-6 max-h-[80vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Create Study Group</h2>
             <form onSubmit={handleCreateGroup} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,20 +262,19 @@ const StudyGroups = () => {
                   className="border rounded-lg px-4 py-2"
                 />
               </div>
-              <input
-                type="text"
-                name="location"
-                placeholder="Location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className="w-full border rounded-lg px-4 py-2"
-              />
-              <div className="flex gap-2">
+              <div className="w-full">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <MapLocationPicker
+                  onLocationSelect={handleLocationSelect}
+                  initialPosition={formData.lat && formData.lng ? { lat: formData.lat, lng: formData.lng } : null}
+                />
+              </div>
+              <div className="flex gap-2 sticky bottom-0 bg-white pt-4 border-t">
                 <button type="submit" className="bg-indigo-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-indigo-700">
                   Create Group
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setActiveTab('browse')}
                   className="border border-gray-300 text-gray-700 py-2 px-6 rounded-lg font-medium hover:bg-gray-50"
                 >
@@ -264,7 +290,7 @@ const StudyGroups = () => {
           {studyGroups.map(group => {
             const isMember = group.memberIds?.includes(currentUser?.uid);
             const isFull = (group.memberCount || 0) >= group.maxMembers;
-            
+
             return (
               <div key={group.id} className="bg-white rounded-lg border p-4 lg:p-6">
                 <div className="flex items-center justify-between mb-3 lg:mb-4">
@@ -279,37 +305,35 @@ const StudyGroups = () => {
                     {group.memberCount || 0}/{group.maxMembers}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedGroup(group)}
                   className="text-indigo-600 hover:text-indigo-700 text-sm font-medium mb-2"
                 >
                   View Details
                 </button>
                 <div className="flex space-x-2">
-                  <button 
+                  <button
                     onClick={() => handleOpenChat(group)}
                     disabled={!isMember}
-                    className={`flex-1 border py-2 px-3 rounded text-sm lg:text-base font-medium ${
-                      isMember 
-                        ? 'border-gray-300 text-gray-700 hover:bg-gray-50' 
-                        : 'border-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`flex-1 border py-2 px-3 rounded text-sm lg:text-base font-medium ${isMember
+                      ? 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
                   >
                     <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                     Chat
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleJoinGroup(group.id)}
                     disabled={!isMember && isFull}
-                    className={`py-2 px-4 rounded text-sm lg:text-base font-medium transition-colors ${
-                      isMember 
-                        ? 'bg-green-600 text-white hover:bg-green-700' 
-                        : isFull
+                    className={`py-2 px-4 rounded text-sm lg:text-base font-medium transition-colors ${isMember
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : isFull
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}
+                      }`}
                   >
                     {isMember ? 'Leave' : isFull ? 'Full' : 'Join'}
                   </button>

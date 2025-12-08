@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import EventFormModal from '../components/EventFormModal';
 import EventDetailsModal from '../components/EventDetailsModal';
 import { Trash2 } from 'lucide-react';
@@ -16,6 +17,7 @@ const Events = () => {
   const [editingEvent, setEditingEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const { currentUser } = useAuth();
+  const { addNotification } = useNotification();
 
   // Fetch events from Firestore on component mount
   useEffect(() => {
@@ -47,6 +49,7 @@ const Events = () => {
         // Update existing event if in edit mode
         const eventRef = doc(db, 'events', editingEvent.id);
         await updateDoc(eventRef, eventData);
+        addNotification('Event updated successfully!', 'success');
       } else {
         // Create a new event with default attendee info
         await addDoc(collection(db, 'events'), {
@@ -55,12 +58,14 @@ const Events = () => {
           attendeeCount: 0,
           creatorId: currentUser.uid
         });
+        addNotification('Event created successfully!', 'success');
       }
       fetchEvents(); // Refresh the events list
       setIsModalOpen(false);
       setEditingEvent(null);
     } catch (error) {
       console.error('Error saving event:', error);
+      addNotification('Failed to save event. Please try again.', 'error');
     }
   };
 
@@ -73,7 +78,7 @@ const Events = () => {
   // Handles the edit action for an event, with permission check
   const handleEdit = (event) => {
     if (currentUser?.uid !== event.creatorId) {
-      alert("You don't have permission to edit this event.");
+      addNotification("You don't have permission to edit this event.", 'error');
       return;
     }
     setEditingEvent(event);
@@ -83,28 +88,34 @@ const Events = () => {
   // Handles the RSVP action for an event
   const handleRSVP = async (eventId) => {
     if (!currentUser) return;
-    
+
     try {
       const eventRef = doc(db, 'events', eventId);
       const event = events.find(e => e.id === eventId);
       const isRSVPed = event.attendeeIds?.includes(currentUser.uid);
-      
+
       // Toggle RSVP status
       if (isRSVPed) {
         await updateDoc(eventRef, {
           attendeeIds: arrayRemove(currentUser.uid),
           attendeeCount: (event.attendeeCount || 1) - 1
         });
+        addNotification('RSVP cancelled successfully', 'info');
       } else {
         await updateDoc(eventRef, {
           attendeeIds: arrayUnion(currentUser.uid),
           attendeeCount: (event.attendeeCount || 0) + 1
         });
+        addNotification('RSVP confirmed! See you at the event.', 'success', 5000, {
+          label: 'View Events',
+          onClick: () => window.location.reload() // Simple refresh to show updated status
+        });
       }
-      
+
       fetchEvents(); // Refresh events to show updated RSVP status
     } catch (error) {
       console.error('Error updating RSVP:', error);
+      addNotification('Failed to update RSVP. Please try again.', 'error');
     }
   };
 
@@ -127,10 +138,10 @@ const Events = () => {
 
       // Remove the deleted event from state so the UI updates
       setEvents(prevEvents => prevEvents.filter(e => e.id !== eventId));
-      console.log('Event deleted successfully');
+      addNotification('Event deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert(error.message);
+      addNotification(error.message || 'Failed to delete event', 'error');
     }
   };
 
@@ -173,7 +184,7 @@ const Events = () => {
             </button>
             <h1 className="text-xl font-bold text-gray-900">Events</h1>
           </div>
-          
+
           {/* Search Bar */}
           <div className="relative mb-4">
             <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,30 +196,27 @@ const Events = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
-          
+
           {/* Filter Buttons */}
           <div className="flex gap-2 mb-6">
-            <button 
+            <button
               onClick={() => setFilter('workshop')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Workshop
             </button>
-            <button 
+            <button
               onClick={() => setFilter('lecture')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Lecture
             </button>
-            <button 
+            <button
               onClick={() => setFilter('club')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Club
             </button>
@@ -218,7 +226,7 @@ const Events = () => {
         {/* Desktop Header */}
         <div className="hidden lg:block mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Events</h1>
-          
+
           <div className="flex items-center gap-4 mb-6">
             {/* Search Bar */}
             <div className="relative flex-1 max-w-md">
@@ -231,7 +239,7 @@ const Events = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
-            
+
             {/* Filters Button */}
             <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,30 +248,27 @@ const Events = () => {
               Filters
             </button>
           </div>
-          
+
           {/* Filter Buttons */}
           <div className="flex gap-2 mb-6">
-            <button 
+            <button
               onClick={() => setFilter('workshop')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'workshop' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Workshop
             </button>
-            <button 
+            <button
               onClick={() => setFilter('lecture')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'lecture' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Lecture
             </button>
-            <button 
+            <button
               onClick={() => setFilter('club')}
-              className={`px-4 py-2 rounded font-medium ${
-                filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
-              }`}
+              className={`px-4 py-2 rounded font-medium ${filter === 'club' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'
+                }`}
             >
               Club
             </button>
@@ -290,13 +295,12 @@ const Events = () => {
                     {event.location}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => handleRSVP(event.id)}
-                  className={`px-4 py-2 rounded font-medium transition-colors ${
-                    event.attendeeIds?.includes(currentUser?.uid)
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
+                  className={`px-4 py-2 rounded font-medium transition-colors ${event.attendeeIds?.includes(currentUser?.uid)
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
                 >
                   {event.attendeeIds?.includes(currentUser?.uid) ? 'RSVP\'d' : 'RSVP'}
                 </button>
@@ -304,7 +308,7 @@ const Events = () => {
             </div>
           ))}
         </div>
-        
+
         {/* Floating Action Button */}
         <button
           onClick={addEvent}
@@ -316,7 +320,7 @@ const Events = () => {
         </button>
       </div>
       {/* Modal for adding/editing events */}
-      <EventFormModal 
+      <EventFormModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);

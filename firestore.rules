@@ -18,7 +18,7 @@ service cloud.firestore {
       allow update: if request.auth.uid == resource.data.createdBy;
       allow delete: if request.auth.uid == resource.data.createdBy;
 
-      // Messages subcollection - allow all group members to read/write
+      // Messages subcollection - allow all group members to read/write messages (updated 2025-12-08)
       match /messages/{messageId} {
         allow read, write: if get(/databases/$(database)/documents/studyGroups/$(groupId)).data.members.hasAny([request.auth.uid]);
       }

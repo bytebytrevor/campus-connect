@@ -3,10 +3,22 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /profilePictures/{userId} {
       allow read: if true;
-      allow write: if request.auth != null 
+      allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    match /chat/{groupId}/{mediaType}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       && mediaType == 'images'
+                       && request.resource.contentType in ['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+                   || (request.resource.contentType.matches('audio/.*')
+                       && mediaType == 'audio'
+                       && request.resource.contentType in ['audio/webm', 'audio/mp3', 'audio/wav', 'audio/mpeg']);
     }
   }
 }
