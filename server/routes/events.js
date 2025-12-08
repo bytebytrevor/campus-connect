@@ -45,21 +45,6 @@ router.delete('/:id', async (req, res) => {
     console.error('Delete event error:', error);
     return res.status(500).json({ message: 'Failed to delete event.', error });
   }
-
-  //     const userId = req.user.uid; // if using auth middleware
-  //   if (doc.data().createdBy !== userId) {
-  //     return res.status(403).json({ message: 'Not authorized to delete this event.' });
-  //   }
-
-  //   await eventRef.delete();
-
-  //   return res.status(200).json({ message: 'Event deleted successfully.' });
-  // } catch (error) {
-  //   console.error('Delete event error:', error);
-  //   return res.status(500).json({ message: 'Failed to delete event.', error });
-  // }
 });
-
-
 
 module.exports = router;
