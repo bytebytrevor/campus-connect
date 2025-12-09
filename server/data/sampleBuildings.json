@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "name": "University Library",
+    "coordinates": { "lat": 34.0722, "lng": -118.4452 }
+  },
+  {
+    "id": 2,
+    "name": "Engineering Building",
+    "coordinates": { "lat": 34.0689, "lng": -118.4426 }
+  },
+  {
+    "id": 3,
+    "name": "Student Union",
+    "coordinates": { "lat": 34.0704, "lng": -118.4439 }
+  },
+  {
+    "id": 4,
+    "name": "Arts & Humanities Center",
+    "coordinates": { "lat": 34.0742, "lng": -118.4418 }
+  },
+  {
+    "id": 5,
+    "name": "Physics & Astronomy Building",
+    "coordinates": { "lat": 34.0699, "lng": -118.4450 }
+  }
+]
